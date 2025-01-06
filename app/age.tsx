@@ -1,25 +1,30 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabase from './utils/supabase';
 
 export default function AgeScreen() {
   const [age, setAge] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async () => {
-    if (age.trim() && !isNaN(Number(age))) {
-      try {
-        await AsyncStorage.setItem('userAge', age.trim());
-        router.replace('/gender');
-      } catch (error) {
-        console.error('Error saving age:', error);
-      }
+    if (!age.trim() || isNaN(Number(age))) return;
+
+    try {
+      setIsLoading(true);
+      await supabase.updateUserProfile({ age: parseInt(age) });
+      router.push('/gender');
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Erreur', 'Impossible de sauvegarder l\'âge');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleAgeChange = (text: string) => {
-    // N'accepte que les nombres
     if (/^\d*$/.test(text)) {
       setAge(text);
     }
@@ -48,7 +53,7 @@ export default function AgeScreen() {
           <TouchableOpacity 
             style={[styles.button, (!age.trim() || isNaN(Number(age))) && styles.buttonDisabled]}
             onPress={handleSubmit}
-            disabled={!age.trim() || isNaN(Number(age))}
+            disabled={!age.trim() || isNaN(Number(age)) || isLoading}
           >
             <Text style={styles.buttonText}>Continuer</Text>
           </TouchableOpacity>

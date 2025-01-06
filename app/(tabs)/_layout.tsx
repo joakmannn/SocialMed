@@ -3,9 +3,10 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UserOptionsModal from '../components/UserOptionsModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import supabase from '../utils/supabaseConfig';
 
 const HeaderRight = () => {
   const router = useRouter();
@@ -41,6 +42,45 @@ const HeaderRight = () => {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { count } = await supabase
+        .from('private_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('receiver_id', user.id)
+        .is('read_at', null);
+
+      setUnreadCount(count || 0);
+    };
+
+    loadUnreadCount();
+
+    // S'abonner aux nouveaux messages
+    const subscription = supabase
+      .channel('unread_count')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'private_messages',
+          filter: 'read_at=is.null'
+        },
+        () => {
+          loadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const commonScreenOptions = {
     headerRight: () => <HeaderRight />,
@@ -52,7 +92,6 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      initialRouteName="feed"
       screenOptions={{
         tabBarActiveTintColor: '#8A2BE2',
         tabBarInactiveTintColor: '#808080',
@@ -71,12 +110,6 @@ export default function TabLayout() {
         ...commonScreenOptions,
       }}>
       <Tabs.Screen
-        name="index"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
         name="messages"
         options={{
           title: 'Messages',
@@ -87,23 +120,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="feed"
-        options={{
-          title: 'Feed',
-          headerTitle: '',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="newspaper-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: 'Explorer',
           headerTitle: '',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="compass" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -114,6 +143,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="notifications" size={size} color={color} />
           ),
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
     </Tabs>

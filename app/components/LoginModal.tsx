@@ -1,147 +1,169 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import supabase from '../utils/supabase';
 
 interface LoginModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-const { height } = Dimensions.get('window');
-
 export default function LoginModal({ visible, onClose }: LoginModalProps) {
-  const slideAnim = React.useRef(new Animated.Value(height)).current;
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
-  React.useEffect(() => {
-    if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11
-      }).start();
-    } else {
-      Animated.spring(slideAnim, {
-        toValue: height,
-        useNativeDriver: true
-      }).start();
+  const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      return;
     }
-  }, [visible]);
 
-  const LoginButton = ({ text, color }: { text: string; color: string }) => (
-    <TouchableOpacity style={[styles.loginButton, { backgroundColor: color }]}>
-      <Text style={styles.loginButtonText}>Continuer avec {text}</Text>
-    </TouchableOpacity>
-  );
+    try {
+      setIsLoading(true);
+      await supabase.signIn(username, password);
+      onClose();
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      Alert.alert(
+        'Erreur de connexion',
+        'Identifiant ou mot de passe incorrect'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Modal
       visible={visible}
-      transparent
-      animationType="fade"
+      animationType="slide"
+      transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableOpacity 
-        style={styles.overlay} 
-        activeOpacity={1} 
-        onPress={onClose}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalContainer}
       >
-        <Animated.View 
-          style={[
-            styles.modalContent,
-            {
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}
-        >
-          <View style={styles.modalHeader}>
-            <View style={styles.handle} />
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={onClose}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.modalContent}>
+          <Text style={styles.title}>Connexion</Text>
           
-          <Text style={styles.title}>Se connecter</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Identifiant"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            editable={!isLoading}
+          />
           
-          <View style={styles.buttonContainer}>
-            <LoginButton 
-              text="Google"
-              color="#4285F4"
-            />
-            <LoginButton 
-              text="Apple"
-              color="#000000"
-            />
-            <LoginButton 
-              text="Numéro"
-              color="#8A2BE2"
-            />
-          </View>
-        </Animated.View>
-      </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Mot de passe"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            editable={!isLoading}
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              (!username.trim() || !password.trim() || isLoading) && styles.buttonDisabled
+            ]}
+            onPress={handleLogin}
+            disabled={!username.trim() || !password.trim() || isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>Se connecter</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={onClose}
+            disabled={isLoading}
+          >
+            <Text style={styles.closeButtonText}>Fermer</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalContainer: {
     flex: 1,
+    justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    margin: 20,
+    borderRadius: 20,
     padding: 20,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    marginBottom: 20,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#DDD',
-    borderRadius: 2,
-  },
-  closeButton: {
-    position: 'absolute',
-    right: 0,
-    top: -10,
-    padding: 10,
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: '#666',
-    fontWeight: '300',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    marginBottom: 20,
     textAlign: 'center',
-    marginBottom: 30,
   },
-  buttonContainer: {
-    gap: 15,
-  },
-  loginButton: {
-    padding: 16,
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 12,
-    marginHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 15,
+    fontSize: 16,
+    marginBottom: 15,
+    backgroundColor: '#f8f8f8',
   },
-  loginButtonText: {
+  button: {
+    backgroundColor: '#8A2BE2',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    marginTop: 15,
+    padding: 10,
+  },
+  closeButtonText: {
+    color: '#666',
     textAlign: 'center',
+    fontSize: 16,
   },
 }); 

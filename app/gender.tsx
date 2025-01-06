@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SelectList } from 'react-native-dropdown-select-list';
+import supabase from './utils/supabase';
 
 type Gender = 'male' | 'female' | 'unspecified';
 
@@ -14,14 +15,19 @@ const genderOptions = [
 
 export default function GenderScreen() {
   const [selectedGender, setSelectedGender] = useState<Gender>('unspecified');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async () => {
     try {
-      await AsyncStorage.setItem('userGender', selectedGender);
-      router.replace('/signup');
+      setIsLoading(true);
+      await supabase.updateUserProfile({ gender: selectedGender });
+      router.replace('/(tabs)');
     } catch (error) {
-      console.error('Error saving gender:', error);
+      console.error('Error:', error);
+      Alert.alert('Erreur', 'Impossible de sauvegarder le genre');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -47,8 +53,9 @@ export default function GenderScreen() {
         </View>
 
         <TouchableOpacity 
-          style={styles.button}
+          style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleSubmit}
+          disabled={isLoading}
         >
           <Text style={styles.buttonText}>Continuer</Text>
         </TouchableOpacity>
@@ -122,5 +129,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
   },
 }); 
