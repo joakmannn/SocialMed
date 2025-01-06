@@ -1,19 +1,48 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useAuth } from './hooks/useAuth';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { signIn, loading } = useAuth();
 
-  const SignupButton = ({ text, color }: { text: string; color: string }) => (
+  const handleGoogleSignIn = async () => {
+    try {
+      await signIn();
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.error('Erreur lors de la connexion avec Google:', error);
+    }
+  };
+
+  const SignupButton = ({ 
+    text, 
+    color, 
+    icon, 
+    onPress, 
+    isLoading 
+  }: { 
+    text: string; 
+    color: string; 
+    icon: keyof typeof Ionicons.glyphMap;
+    onPress?: () => void;
+    isLoading?: boolean;
+  }) => (
     <TouchableOpacity 
       style={[styles.signupButton, { backgroundColor: color }]}
-      onPress={() => {
-        // TODO: Implémenter la logique de connexion
-        router.replace('/(tabs)');
-      }}
+      onPress={onPress}
+      disabled={isLoading}
     >
-      <Text style={styles.signupButtonText}>Continuer avec {text}</Text>
+      {isLoading ? (
+        <ActivityIndicator color="#fff" />
+      ) : (
+        <>
+          <Ionicons name={icon} size={24} color="#fff" style={styles.buttonIcon} />
+          <Text style={styles.signupButtonText}>Continuer avec {text}</Text>
+        </>
+      )}
     </TouchableOpacity>
   );
 
@@ -31,14 +60,19 @@ export default function SignupScreen() {
           <SignupButton 
             text="Google"
             color="#4285F4"
+            icon="logo-google"
+            onPress={handleGoogleSignIn}
+            isLoading={loading}
           />
           <SignupButton 
             text="Apple"
             color="#000000"
+            icon="logo-apple"
           />
           <SignupButton 
             text="Numéro"
             color="#8A2BE2"
+            icon="phone-portrait-outline"
           />
         </View>
       </View>
@@ -76,6 +110,7 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   signupButton: {
+    flexDirection: 'row',
     padding: 16,
     borderRadius: 12,
     marginHorizontal: 10,
@@ -95,5 +130,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  buttonIcon: {
+    marginRight: 10,
   },
 }); 
