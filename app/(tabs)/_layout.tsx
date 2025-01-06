@@ -1,14 +1,60 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import UserOptionsModal from '../components/UserOptionsModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const HeaderRight = () => {
+  const router = useRouter();
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.clear();
+      router.replace('/');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
+
+  return (
+    <>
+      <TouchableOpacity 
+        onPress={() => setIsModalVisible(true)}
+        style={{ marginRight: 15 }}
+      >
+        <Ionicons name="person-circle-outline" size={28} color="#8A2BE2" />
+      </TouchableOpacity>
+
+      <UserOptionsModal 
+        visible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+        onProfilePress={() => router.push('../profile')}
+        onLogoutPress={handleLogout}
+      />
+    </>
+  );
+};
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
+  const commonScreenOptions = {
+    headerRight: () => <HeaderRight />,
+    headerStyle: {
+      backgroundColor: colorScheme === 'dark' ? '#353636' : '#ffffff',
+    },
+    headerShadowVisible: false,
+  };
+
   return (
     <Tabs
+      initialRouteName="feed"
       screenOptions={{
-        tabBarActiveTintColor: colorScheme === 'dark' ? '#fff' : '#000',
+        tabBarActiveTintColor: '#8A2BE2',
         tabBarInactiveTintColor: '#808080',
         tabBarStyle: {
           height: 60,
@@ -22,20 +68,29 @@ export default function TabLayout() {
           fontSize: 12,
           fontWeight: '500',
         },
+        ...commonScreenOptions,
       }}>
-        <Tabs.Screen
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="messages"
         options={{
           title: 'Messages',
+          headerTitle: '',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubble" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="feed"
         options={{
           title: 'Feed',
+          headerTitle: '',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="newspaper-outline" size={size} color={color} />
           ),
@@ -45,16 +100,17 @@ export default function TabLayout() {
         name="explore"
         options={{
           title: 'Explore',
+          headerTitle: '',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="compass" size={size} color={color} />
           ),
         }}
       />
-      
       <Tabs.Screen
         name="notifications"
         options={{
           title: 'Notifications',
+          headerTitle: '',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="notifications" size={size} color={color} />
           ),
